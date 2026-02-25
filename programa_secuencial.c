@@ -158,28 +158,30 @@ int main(int argc, char *argv[]) {
        kn = WK^T * xn + bK
        vn = WV^T * xn + bV
     */
-    for (n = 0; n < N; n++) {
+    for (n = 0; n < N; n++) { 
         for (j = 0; j < D; j++) {
             double sumK = bK[j];
-            double sumV = bV[j];
+            double sumV = bV[j]; 
             for (i = 0; i < D; i++) {
-                double xni = X[n * D + i];
+                int index_traspuesta = i * D + j; // 2 FLOP
+                double xni = X[n * D + i]; // 2 FLOP
                 /* W^T * x  => usar W[i][j] */
-                sumK += WK[i * D + j] * xni;
-                sumV += WV[i * D + j] * xni;
+                sumK += WK[index_traspuesta] * xni; // 2  FLOPS
+                sumV += WV[index_traspuesta] * xni; // 2  FLOPS
             }
-            K[n * D + j] = sumK;
-            V[n * D + j] = sumV;
+            int index = n * D + j; // 2 * D FLOP
+            K[index] = sumK;
+            V[index] = sumV;
         }
     }
 
     /* 4.2 Para cada n: calcular q_n, similitudes, softmax y c_n */
     for (n = 0; n < N; n++) {
         /* q_n = WQ^T * x_n + bQ */
-        for (j = 0; j < D; j++) {
+        for (j = 0; j < D; j++) { 
             double sumQ = bQ[j];
             for (i = 0; i < D; i++) {
-                sumQ += WQ[i * D + j] * X[n * D + i];
+                sumQ += WQ[i * D + j] * X[n * D + i]; // 6 FLOPS
             }
             q[j] = sumQ;
         }
@@ -189,25 +191,25 @@ int main(int argc, char *argv[]) {
         for (i = 0; i < N; i++) {
             double dot = 0.0;
             for (d = 0; d < D; d++) {
-                dot += q[d] * K[i * D + d];
+                dot += q[d] * K[i * D + d]; // 4 FLOPS
             }
-            dot /= sqrtD;
-            A[i] = exp(dot);
-            sum_exp += A[i];
+            dot /= sqrtD; // 4 FLOPS
+            A[i] = exp(dot); // 8 FLOPS
+            sum_exp += A[i]; // 1 FLOPS
         }
 
         /* Normalizar A(i) */
         for (i = 0; i < N; i++) {
-            A[i] /= sum_exp;
+            A[i] /= sum_exp; // 4 FLOPS
         }
 
         /* c_n = sum_i A(i) * v_i */
         for (d = 0; d < D; d++) {
             double sumC = 0.0;
             for (i = 0; i < N; i++) {
-                sumC += A[i] * V[i * D + d];
+                sumC += A[i] * V[i * D + d]; // 4 FLOPS
             }
-            C[n * D + d] = sumC;
+            C[n * D + d] = sumC; // 2 FLOPS
         }
     }
 
