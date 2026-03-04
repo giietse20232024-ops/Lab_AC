@@ -1,9 +1,10 @@
 CC = gcc
-CFLAGS = -fopenmp 
+CFLAGS = -fopenmp
 LDFLAGS =
 
-SRC = Ejercicio_1.c
-OUT = Ejercicio_1
+N ?= 1
+SRC = Ejercicio_$(N).c
+OUT = Ejercicio_$(N)
 
 all: $(OUT)
 
