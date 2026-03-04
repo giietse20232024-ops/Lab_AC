@@ -1,5 +1,10 @@
-# Carpeta test
+#
+Carpeta test
 Test/
 
 # Ejecutables
 programa_secuencial
+
+# Comprimido
+# Comprimidoss
+*.zip
