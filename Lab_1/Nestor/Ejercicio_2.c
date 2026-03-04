@@ -10,7 +10,7 @@ int tid, i;
 
 omp_set_num_threads(NTHREADS);
 
-#pragma omp parallel for schedule(static) private(tid);
+#pragma omp parallel for schedule(static) private(tid)
 {
   tid = omp_get_thread_num();
 
