@@ -11,5 +11,8 @@ all: $(OUT)
 $(OUT): $(SRC)
 	$(CC) $(CFLAGS) -o $(OUT) $(SRC) $(LDFLAGS)
 
+%:
+	@$(MAKE) N=$@ all
+
 clean:
 	rm -f $(OUT)
