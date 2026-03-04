@@ -12,7 +12,7 @@ $(OUT): $(SRC)
 	$(CC) $(CFLAGS) -o $(OUT) $(SRC) $(LDFLAGS)
 
 %:
-	@$(MAKE) N=$@ $(OUT)
+	@$(MAKE) --no-print-directory N=$@ Ejercicio_$@
 
 clean:
 	rm -f $(OUT)
