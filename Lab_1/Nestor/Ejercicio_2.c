@@ -10,11 +10,11 @@ int tid, i;
 
 omp_set_num_threads(NTHREADS);
 
-#pragma omp parallel for schedule(static) private(tid)
+#pragma omp parallel private(tid)
 {
   tid = omp_get_thread_num();
 
-  #pragma omp for
+  #pragma omp for schedule(static)
   for (i = 0; i < N; i++) {
     sleep(i);
     printf("El hilo %d ejecuta la iteracion %d\n", tid, i);
