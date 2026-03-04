@@ -12,7 +12,7 @@ $(OUT): $(SRC)
 	$(CC) $(CFLAGS) -o $(OUT) $(SRC) $(LDFLAGS)
 
 %:
-	@$(MAKE) N=$@ all
+	@$(MAKE) N=$@ $(OUT)
 
 clean:
 	rm -f $(OUT)
