@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = 
+CFLAGS = -fopemp 
 LDFLAGS =
 
 SRC = Ejercicio_1.c
