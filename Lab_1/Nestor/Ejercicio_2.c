@@ -14,7 +14,7 @@ omp_set_num_threads(NTHREADS);
 {
   tid = omp_get_thread_num();
 
-  #pragma omp for schedule(static)
+  #pragma omp for schedule(dynamic)
   for (i = 0; i < N; i++) {
     sleep(i);
     printf("El hilo %d ejecuta la iteracion %d\n", tid, i);
