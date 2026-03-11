@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <omp.h>
 
 double get_time() {
     struct timespec t;
@@ -158,7 +159,9 @@ int main(int argc, char *argv[]) {
        kn = WK^T * xn + bK
        vn = WV^T * xn + bV
     */
+    #pragma omp parallel for private(n, i, j, index_traspuesta, xni) shared(bK, bV, X, WK, WV, N, D, K, V) schedule(static)
     for (n = 0; n < N; n++) { 
+
         for (j = 0; j < D; j++) {
             double sumK = bK[j];
             double sumV = bV[j]; 
@@ -176,6 +179,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* 4.2 Para cada n: calcular q_n, similitudes, softmax y c_n */
+    #pragma omp parallel for private(q, sumQ, n, i, j, sum_exp, dot, A, C, sumC) shared(bQ, N, D, sqrtD, V) schedule(static)
     for (n = 0; n < N; n++) {
         /* q_n = WQ^T * x_n + bQ */
         for (j = 0; j < D; j++) { 
