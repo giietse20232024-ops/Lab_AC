@@ -4,8 +4,7 @@ set -euo pipefail
 REPS=4
 N_FIXED=100
 D_FIXED=100
-D_STEP=50
-ND_STEP=100
+STEP=50
 EXECUTABLES=("secuencial" "secuencial_O2" "paralelo" "paralelo_O2")
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,7 +36,7 @@ if (( ${#missing[@]} > 0 )); then
 fi
 
 all_sizes=()
-for ((size=100; size<=MAX_SIZE; size+=D_STEP)); do
+for ((size=100; size<=MAX_SIZE; size+=STEP)); do
     all_sizes+=("$size")
 done
 
@@ -106,12 +105,8 @@ write_row_d_fixed() {
 
     printf 'D=100,N_variable'
     for size in "${all_sizes[@]}"; do
-        if (( size % ND_STEP == 0 )); then
-            avg=$(average_time "$exe" "$size" "$D_FIXED")
-            printf ';%s' "$avg"
-        else
-            printf ';'
-        fi
+        avg=$(average_time "$exe" "$size" "$D_FIXED")
+        printf ';%s' "$avg"
     done
     printf '\n'
 }
@@ -122,12 +117,8 @@ write_row_both_variable() {
 
     printf 'N=D_variable'
     for size in "${all_sizes[@]}"; do
-        if (( size % ND_STEP == 0 )); then
-            avg=$(average_time "$exe" "$size" "$size")
-            printf ';%s' "$avg"
-        else
-            printf ';'
-        fi
+        avg=$(average_time "$exe" "$size" "$size")
+        printf ';%s' "$avg"
     done
     printf '\n'
 }
