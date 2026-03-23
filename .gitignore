@@ -1,17 +1,29 @@
-#
-Carpeta test
+# Ignorar todo
+*
+
+
+# #### Archivos que sí quiero conservar #### #
+
+# No ignorar carpetas
+!*/
+
+# Codigo C
+!*.c
+!*.h
+
+# Scripts
+!*.sh
+
+# Makefiles
+!Makefile
+
+# Control de git
+!.gitignore
+!*.md
+
+# Carpeta Test sí se ignora por completo
 Test/
 
-# Ejecutables
-programa_secuencial
-secuencial
-secuencial_O2
-paralelo
-paralelo_O2
-
-# Comprimido
-# Comprimidoss
+# Ignorar comprimidos y CSV aunque alguna regla los reactivase
 *.zip
-
-# CSV
 *.csv
