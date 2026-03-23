@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE 199309L
+#define _POSIX_C_SOURCE 199311L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
        kn = WK^T * xn + bK
        vn = WV^T * xn + bV
     */
-    #pragma omp parallel for private(n, i, j, index_traspuesta, xni) shared(bK, bV, X, WK, WV, N, D, K, V) schedule(static)
+    #pragma omp parallel for schedule(static) private(n, j, i) shared(N, D, WK, WV, bK, bV, X, K, V)
     for (n = 0; n < N; n++) { 
 
         for (j = 0; j < D; j++) {
@@ -179,39 +179,38 @@ int main(int argc, char *argv[]) {
     }
 
     /* 4.2 Para cada n: calcular q_n, similitudes, softmax y c_n */
-    #pragma omp parallel for private(q, sumQ, n, i, j, sum_exp, dot, A, C, sumC) shared(bQ, N, D, sqrtD, V) schedule(static)
+    #pragma omp parallel for schedule(static) private(n, j, i, d) shared(N, D, WQ, bQ, X, K, V, C, sqrtD)
     for (n = 0; n < N; n++) {
+        // Declaramos buffers locales al hilo (en el stack)
+        // Esto evita que los hilos se pisen entre sí
+        double q_local[D]; 
+        double A_local[N];
+
         /* q_n = WQ^T * x_n + bQ */
         for (j = 0; j < D; j++) { 
             double sumQ = bQ[j];
             for (i = 0; i < D; i++) {
-                sumQ += WQ[i * D + j] * X[n * D + i]; // 2 FLOPS
+                sumQ += WQ[i * D + j] * X[n * D + i];
             }
-            q[j] = sumQ;
+            q_local[j] = sumQ;
         }
 
         /* A(i) = exp( (q_n · k_i) / sqrt(D) ) */
-        double sum_exp = 0.0;
+        double sum_exp = 0.0; // Esta variable debe ser privada (se declara aquí)
         for (i = 0; i < N; i++) {
             double dot = 0.0;
             for (d = 0; d < D; d++) {
-                dot += q[d] * K[i * D + d]; // 2 FLOPS
+                dot += q_local[d] * K[i * D + d];
             }
-            dot /= sqrtD; // 4 FLOPS
-            A[i] = exp(dot); // 8 FLOPS
-            sum_exp += A[i]; // 1 FLOPS
+            A_local[i] = exp(dot / sqrtD);
+            sum_exp += A_local[i];
         }
 
-        /* Normalizar A(i) */
-        for (i = 0; i < N; i++) {
-            A[i] /= sum_exp; // 4 FLOPS
-        }
-
-        /* c_n = sum_i A(i) * v_i */
+        /* Normalizar y calcular c_n */
         for (d = 0; d < D; d++) {
             double sumC = 0.0;
             for (i = 0; i < N; i++) {
-                sumC += A[i] * V[i * D + d]; // 2 FLOPS
+                sumC += (A_local[i] / sum_exp) * V[i * D + d];
             }
             C[n * D + d] = sumC;
         }
