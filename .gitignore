@@ -4,7 +4,14 @@ Test/
 
 # Ejecutables
 programa_secuencial
+secuencial
+secuencial_O2
+paralelo
+paralelo_O2
 
 # Comprimido
 # Comprimidoss
 *.zip
+
+# CSV
+*.csv
