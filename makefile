@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -O2
 LDFLAGS = -lm
 
 SRC = programa_secuencial.c
