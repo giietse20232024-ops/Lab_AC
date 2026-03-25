@@ -59,8 +59,9 @@ compute_average() {
     awk -v s="$sum" -v r="$REPS" 'BEGIN { printf "%.10f", s / r }'
 }
 
-for exe in "${EXECUTABLES[@]}"; do
-    csv_file="resultados_${exe}_hilos.csv"
+write_csv() {
+    local csv_file="$1"
+    declare -n data_ref="$2"
 
     {
         printf "hilos"
@@ -71,17 +72,90 @@ for exe in "${EXECUTABLES[@]}"; do
 
         for threads in "${THREADS_LIST[@]}"; do
             printf "%d" "$threads"
-
             for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
-                avg_time=$(compute_average "$exe" "$size" "$size" "$threads")
-                printf ";%s" "$avg_time"
+                key="${threads}_${size}"
+                printf ";%s" "${data_ref[$key]}"
             done
-
             printf "\n"
         done
     } > "$csv_file"
+}
 
-    echo "Generado: $csv_file"
+load_existing_csv() {
+    local csv_file="$1"
+    declare -n data_ref="$2"
+
+    [[ -f "$csv_file" ]] || return 0
+
+    local line_num=0
+    while IFS=';' read -r -a fields; do
+        ((line_num++))
+
+        # Saltar cabecera
+        if (( line_num == 1 )); then
+            continue
+        fi
+
+        local threads="${fields[0]}"
+        [[ -z "$threads" ]] && continue
+
+        local col=1
+        for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
+            if (( col < ${#fields[@]} )); then
+                data_ref["${threads}_${size}"]="${fields[$col]}"
+            else
+                data_ref["${threads}_${size}"]=""
+            fi
+            ((col++))
+        done
+    done < "$csv_file"
+}
+
+for exe in "${EXECUTABLES[@]}"; do
+    csv_file="resultados_${exe}_hilos.csv"
+    declare -A data=()
+
+    # Inicializar todas las celdas vacías
+    for threads in "${THREADS_LIST[@]}"; do
+        for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
+            data["${threads}_${size}"]=""
+        done
+    done
+
+    # Cargar CSV previo si existe
+    load_existing_csv "$csv_file" data
+
+    # Si no existe, crear estructura inicial
+    if [[ ! -f "$csv_file" ]]; then
+        write_csv "$csv_file" data
+    fi
+
+    echo "Procesando $exe..."
+
+    for threads in "${THREADS_LIST[@]}"; do
+        echo "  Hilos: $threads"
+
+        for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
+            key="${threads}_${size}"
+
+            # Si ya existe valor, se salta
+            if [[ -n "${data[$key]}" ]]; then
+                echo "    Saltando N=D=$size (ya calculado: ${data[$key]})"
+                continue
+            fi
+
+            echo "    Calculando N=D=$size ..."
+            avg_time=$(compute_average "$exe" "$size" "$size" "$threads")
+            data["$key"]="$avg_time"
+
+            # Guardar progreso inmediatamente
+            write_csv "$csv_file" data
+            echo "    Guardado: $threads hilos, N=D=$size, tiempo medio=$avg_time"
+        done
+    done
+
+    echo "Generado/actualizado: $csv_file"
+    unset data
 done
 
 echo "Benchmark completado."
