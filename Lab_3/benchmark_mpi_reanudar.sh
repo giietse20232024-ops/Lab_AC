@@ -11,9 +11,9 @@ NUM_PROCS=12
 # Repeticiones por punto
 REPS=4
 
-# Tallas
+# Tallas: 100, 200, 300, ...
 MIN_SIZE=100
-STEP=50
+STEP=100
 
 # Comando MPI
 MPI_RUN="mpirun"
@@ -54,24 +54,27 @@ compute_average() {
     local output=""
 
     for ((r=1; r<=REPS; r++)); do
-        echo "      Repeticion $r/$REPS..."
+        # IMPORTANTE:
+        # Este mensaje va a stderr para que NO se guarde dentro del CSV.
+        echo "      Repeticion $r/$REPS..." >&2
 
         output=$($MPI_RUN -np "$NUM_PROCS" "./$exe" "$n" "$d")
         time_val=$(extract_time "$output")
 
         if [[ -z "$time_val" ]]; then
-            echo "Error: no se pudo extraer el tiempo."
-            echo "Ejecutable: ./$exe"
-            echo "Procesos MPI: $NUM_PROCS"
-            echo "N=$n D=$d"
-            echo "Salida recibida:"
-            echo "$output"
+            echo "Error: no se pudo extraer el tiempo." >&2
+            echo "Ejecutable: ./$exe" >&2
+            echo "Procesos MPI: $NUM_PROCS" >&2
+            echo "N=$n D=$d" >&2
+            echo "Salida recibida:" >&2
+            echo "$output" >&2
             exit 1
         fi
 
         sum=$(awk -v a="$sum" -v b="$time_val" 'BEGIN { printf "%.10f", a + b }')
     done
 
+    # Esta es la única salida por stdout de la función.
     awk -v s="$sum" -v r="$REPS" 'BEGIN { printf "%.10f", s / r }'
 }
 
@@ -81,17 +84,21 @@ write_csv() {
 
     {
         printf "procesos"
+
         for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
             printf ";%d" "$size"
         done
+
         printf "\n"
 
         printf "%d" "$NUM_PROCS"
+
         local idx=0
         for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
             printf ";%s" "${values_ref[$idx]}"
             ((idx++))
         done
+
         printf "\n"
     } > "$csv_file"
 }
@@ -148,12 +155,11 @@ for exe in "${EXECUTABLES[@]}"; do
 
     load_existing_csv "$csv_file" values
 
-    # Crear o actualizar el CSV antes de empezar
+    # Crear o actualizar estructura inicial del CSV
     write_csv "$csv_file" values
 
     idx=0
     for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
-
         if [[ -n "${values[$idx]}" ]]; then
             echo "  Saltando N=D=$size. Ya calculado: ${values[$idx]}"
             ((idx++))
@@ -161,6 +167,7 @@ for exe in "${EXECUTABLES[@]}"; do
         fi
 
         echo "  Calculando N=D=$size con $NUM_PROCS procesos MPI..."
+
         avg_time=$(compute_average "$exe" "$size" "$size")
 
         values[$idx]="$avg_time"
