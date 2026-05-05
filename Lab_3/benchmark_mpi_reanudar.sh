@@ -1,21 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -u
 
-# Ejecutables MPI a probar
 EXECUTABLES=("paralelo_mpi" "paralelo_mpi_O2")
 
-# Solo se ejecuta con 12 procesos MPI
 NUM_PROCS=12
-
-# Repeticiones por punto
 REPS=4
 
-# Tallas: 100, 200, 300, ...
 MIN_SIZE=100
 STEP=100
 
-# Comando MPI
 MPI_RUN="mpirun"
 
 read -p "Introduce la talla maxima del programa (multiplo de 100): " MAX_SIZE
@@ -32,8 +26,8 @@ fi
 
 for exe in "${EXECUTABLES[@]}"; do
     if [[ ! -x "./$exe" ]]; then
-        echo "Error: no existe el ejecutable ./$exe o no tiene permisos de ejecucion."
-        echo "Compila primero con: make"
+        echo "Error: no existe ./$exe o no tiene permisos de ejecucion."
+        echo "Compila primero con make."
         exit 1
     fi
 done
@@ -50,13 +44,11 @@ compute_average() {
     local d="$3"
 
     local sum="0"
-    local time_val=""
     local output=""
+    local time_val=""
 
-    for ((r=1; r<=REPS; r++)); do
-        # IMPORTANTE:
-        # Este mensaje va a stderr para que NO se guarde dentro del CSV.
-        echo "      Repeticion $r/$REPS..." >&2
+    for ((rep=1; rep<=REPS; rep++)); do
+        echo "      Repeticion $rep/$REPS" >&2
 
         output=$($MPI_RUN -np "$NUM_PROCS" "./$exe" "$n" "$d")
         time_val=$(extract_time "$output")
@@ -74,13 +66,21 @@ compute_average() {
         sum=$(awk -v a="$sum" -v b="$time_val" 'BEGIN { printf "%.10f", a + b }')
     done
 
-    # Esta es la única salida por stdout de la función.
     awk -v s="$sum" -v r="$REPS" 'BEGIN { printf "%.10f", s / r }'
 }
 
-write_csv() {
+is_valid_number() {
+    local value="$1"
+
+    [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]]
+}
+
+create_empty_csv_if_needed() {
     local csv_file="$1"
-    local -n values_ref="$2"
+
+    if [[ -f "$csv_file" ]]; then
+        return 0
+    fi
 
     {
         printf "procesos"
@@ -90,44 +90,42 @@ write_csv() {
         done
 
         printf "\n"
-
         printf "%d" "$NUM_PROCS"
 
-        local idx=0
         for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
-            printf ";%s" "${values_ref[$idx]}"
-            ((idx++))
+            printf ";"
         done
 
         printf "\n"
     } > "$csv_file"
 }
 
-load_existing_csv() {
+load_existing_results() {
     local csv_file="$1"
-    local -n values_ref="$2"
-
-    [[ -f "$csv_file" ]] || return 0
+    local -n results_ref="$2"
 
     local line=""
-    local -a fields=()
+    local -a fields
 
     while IFS= read -r line; do
-        # Buscar la fila que empieza por "12;"
         if [[ "$line" == "$NUM_PROCS;"* ]]; then
             IFS=';' read -r -a fields <<< "$line"
 
-            local idx=0
             local col=1
 
             for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
+                local value=""
+
                 if (( col < ${#fields[@]} )); then
-                    values_ref[$idx]="${fields[$col]}"
-                else
-                    values_ref[$idx]=""
+                    value="${fields[$col]}"
                 fi
 
-                ((idx++))
+                if is_valid_number "$value"; then
+                    results_ref["$size"]="$value"
+                else
+                    results_ref["$size"]=""
+                fi
+
                 ((col++))
             done
 
@@ -136,33 +134,51 @@ load_existing_csv() {
     done < "$csv_file"
 }
 
+write_csv() {
+    local csv_file="$1"
+    local -n results_ref="$2"
+
+    {
+        printf "procesos"
+
+        for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
+            printf ";%d" "$size"
+        done
+
+        printf "\n"
+        printf "%d" "$NUM_PROCS"
+
+        for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
+            printf ";%s" "${results_ref[$size]}"
+        done
+
+        printf "\n"
+    } > "$csv_file"
+}
+
 for exe in "${EXECUTABLES[@]}"; do
     csv_file="resultados_${exe}_12procesos.csv"
 
     echo "========================================"
-    echo "Procesando ejecutable: $exe"
+    echo "Ejecutable: $exe"
     echo "Procesos MPI: $NUM_PROCS"
+    echo "Tallas: $MIN_SIZE, $((MIN_SIZE + STEP)), ..., $MAX_SIZE"
     echo "CSV: $csv_file"
     echo "========================================"
 
-    values=()
+    declare -A results=()
 
-    idx=0
     for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
-        values[$idx]=""
-        ((idx++))
+        results["$size"]=""
     done
 
-    load_existing_csv "$csv_file" values
+    create_empty_csv_if_needed "$csv_file"
+    load_existing_results "$csv_file" results
+    write_csv "$csv_file" results
 
-    # Crear o actualizar estructura inicial del CSV
-    write_csv "$csv_file" values
-
-    idx=0
     for ((size=MIN_SIZE; size<=MAX_SIZE; size+=STEP)); do
-        if [[ -n "${values[$idx]}" ]]; then
-            echo "  Saltando N=D=$size. Ya calculado: ${values[$idx]}"
-            ((idx++))
+        if [[ -n "${results[$size]}" ]]; then
+            echo "  Saltando N=D=$size. Ya calculado: ${results[$size]}"
             continue
         fi
 
@@ -170,18 +186,17 @@ for exe in "${EXECUTABLES[@]}"; do
 
         avg_time=$(compute_average "$exe" "$size" "$size")
 
-        values[$idx]="$avg_time"
+        results["$size"]="$avg_time"
 
-        # Guardar progreso inmediatamente
-        write_csv "$csv_file" values
+        write_csv "$csv_file" results
 
-        echo "  Guardado: N=D=$size, tiempo medio=$avg_time"
-
-        ((idx++))
+        echo "  Guardado N=D=$size -> $avg_time"
     done
 
-    echo "Finalizado/actualizado: $csv_file"
+    echo "Finalizado: $csv_file"
     echo
+
+    unset results
 done
 
-echo "Benchmark MPI con 12 procesos completado."
+echo "Benchmark MPI completado."
